@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Shared Documentation</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .btn-msdn {
+            font-size: 12px;
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            border-color: #bbb;
+            color: #333;
+        }
+
+        .btn-msdn:hover {
+            background-color: #ddd;
+        }
+
+        .btn-msdn:active {
+            background-color: #ccc;
+        }
+
+        .sidebar {
+            width: 20%;
+            min-width: 250px;
+        }
+
+        .content {
+            white-space: normal;
+            word-wrap: break-word;  /* 如果单词太长并且不适合容器，它会断开 */
+        }
+
+
+        .sidebar-right {
+            width: 20%;
+            min-width: 250px;
+        }
+
+        .highlighted {
+            background-color: #f5f5f5;
+        }
+
+        .highlight-search {
+            background-color: yellow;
+            padding: 0 2px;
+        }
+        .active-link {
+            font-weight: bold;
+        }
+
+        .active-content {
+            border: 2px solid #007bff;
+            padding: 10px;
+        }
+        .row {
+            min-height: 100vh; 
+            overflow: visible;  /* 确保不会有隐藏的溢出 */
+        }
+        .sticky-sidebar {
+            position: sticky;
+            top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-2">
+                <div class="sidebar sticky-sidebar">
+                    <h4 class="mt-3">目录</h4>
+                    <ul class="list-unstyled">
+                        {% for document in documents %}
+                        <li>
+                            <a href="#document{{ document.id }}" class="document-link">{{ document.title }}</a>
+                        </li>
+                        {% if document.children %}
+                        <ul>
+                            {% for child in document.children %}
+                            <li>
+                                <a href="#document{{ child.id }}" class="document-link" data-parent-id="#children{{ document.id }}">{{ child.title }}</a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-8 content">
+                {% for document in documents %}
+                <div id="document{{ document.id }}">
+                    <h2>{{ document.title }}</h2>
+                    <div class="mb-4 {% if loop.first %}highlighted{% endif %}">
+                        {{ document.content }}
+                        {% if document.children %}
+                        <button class="btn btn-link btn-msdn" type="button" data-bs-toggle="collapse" data-bs-target="#children{{ document.id }}" aria-expanded="false" aria-controls="children{{ document.id }}">
+                            子级
+                        </button>
+                        {% endif %}
+                        <a href="{{ url_for('edit_document', document_id=document.id) }}" class="btn btn-link btn-msdn">修改</a>
+                    </div>
+                </div>
+                {% if document.children %}
+                <ul id="children{{ document.id }}" class="collapse">
+                    {% for child in document.children %}
+                    <li>
+                        <div id="document{{ child.id }}">
+                            <h3>{{ child.title }}</h3>
+                            <div class="mb-4">
+                                {{ child.content }}
+                                <a href="{{ url_for('edit_document', document_id=child.id) }}" class="btn btn-link btn-msdn">修改</a>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="col-md-2">
+                <div class="sidebar sticky-sidebar">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="searchInput" placeholder="搜索...">
+                        <button class="btn btn-primary btn-msdn mt-2" id="searchButton">搜索</button>
+                    </div>
+                    
+                    <h4 class="mt-3">添加文档</h4>
+                    <form method="POST" action="/">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">标题:</label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="content" class="form-label">内容:</label>
+                            <textarea class="form-control" id="content" name="content" rows="4" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="parent_id" class="form-label">父主题:</label>
+                            <select class="form-select" id="parent_id" name="parent_id">
+                                <option value="">None</option>
+                                {% for document in documents %}
+                                <option value="{{ document.id }}">{{ document.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-msdn">添加</button>
+                    </form>
+                </div>
+            </div>      
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <script>
+        const documentLinks = document.querySelectorAll('.document-link');
+        documentLinks.forEach(link => {
+            link.addEventListener('click', (event) => {
+                event.preventDefault();
+
+                // Remove the active class from all links
+                documentLinks.forEach(otherLink => {
+                    otherLink.classList.remove('active-link');
+                });
+
+                // Remove the active content class from all contents
+                const allContents = document.querySelectorAll('[id^="document"]');
+                allContents.forEach(content => {
+                    content.classList.remove('active-content');
+                });
+
+                // Add the active class to the clicked link
+                link.classList.add('active-link');
+
+                const targetId = link.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth' });
+
+                    // Highlight the content
+                    targetElement.classList.add('active-content');
+
+                    // If the clicked link is a child, expand its parent content
+                    const parentId = link.getAttribute('data-parent-id');
+                    if (parentId) {
+                        const parentElement = document.querySelector(parentId);
+                        if (parentElement && !parentElement.classList.contains('show')) {
+                            new bootstrap.Collapse(parentElement).show();
+                        }
+                    }
+
+                    // Expand the content if it was collapsed
+                    const collapseElement = targetElement.querySelector('.collapse');
+                    if (collapseElement && !collapseElement.classList.contains('show')) {
+                        new bootstrap.Collapse(collapseElement).show();
+                    }
+                }
+            });
+        });
+        
+    </script>
+    <script>
+       document.getElementById('searchButton').addEventListener('click', () => {
+    const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
+    if (searchQuery === '') return;
+
+    // Remove previous highlights
+    document.querySelectorAll('.highlight-search').forEach(highlighted => {
+        const text = highlighted.textContent;
+        highlighted.replaceWith(text);
+    });
+
+    const allContents = document.querySelectorAll('[id^="document"]');
+    allContents.forEach(content => {
+        const contentHtml = content.innerHTML;
+        const searchRegex = new RegExp(`(${searchQuery})`, 'gi');
+        if (contentHtml.match(searchRegex)) {
+            content.innerHTML = contentHtml.replace(searchRegex, '<span class="highlight-search">$1</span>');
+
+            // If the found content is inside a collapsed element, expand it
+            const parentCollapse = content.closest('.collapse');
+            if (parentCollapse && !parentCollapse.classList.contains('show')) {
+                new bootstrap.Collapse(parentCollapse).show();
+            }
+
+            // Scroll into view
+            content.scrollIntoView({ behavior: 'smooth' });
+        }
+    });
+});
+
+    </script>
+</body>
+
+</html>
